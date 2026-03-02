@@ -698,11 +698,23 @@ body {
         <div id="opts"></div>
         <div id="q-status" style="text-align:center;font-size:19px;font-weight:800;margin-top:12px;text-shadow:1px 1px 0 rgba(0,0,0,0.5);"></div>
         <div id="q-balance-info" style="display:none;margin-top:8px;background:rgba(0,0,0,0.45);border:1px solid rgba(244,208,63,0.25);border-radius:12px;padding:8px 18px;font-size:15px;color:var(--gold);font-weight:700;text-align:center;"></div>
+        
+        <div id="tomato-area" style="display: none; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 12px; margin: 10px 0;">
+            <div style="color: #fff; font-size: 14px; text-align: center; margin-bottom: 8px;">
+                🍅 Ném Cà Chua Khịa Top 3 (Phí: 2.000đ)
+            </div>
+            <div style="display: flex; justify-content: space-evenly;">
+                <button onclick="doThrowTomato(0)" style="background:#C0392B; color:#fff; font-weight:bold; padding:8px 15px; border-radius:8px; border:2px solid #F4D03F;">🍅 Top 1</button>
+                <button onclick="doThrowTomato(1)" style="background:#D35400; color:#fff; font-weight:bold; padding:8px 15px; border-radius:8px; border:2px solid #F4D03F;">🍅 Top 2</button>
+                <button onclick="doThrowTomato(2)" style="background:#E67E22; color:#fff; font-weight:bold; padding:8px 15px; border-radius:8px; border:2px solid #F4D03F;">🍅 Top 3</button>
+            </div>
+        </div>
     </div>
 
     <div id="bet-ui" class="hidden">
         <div style="text-align:center;margin-bottom:12px;"><span style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,215,0,0.3);padding:5px 15px;border-radius:20px;font-size:12px;color:var(--gold);text-transform:uppercase;">🎲 Đặt Cược</span></div>
         <div id="balance-display">💰 200,000</div>
+        
         <div style="width:70%; margin:0 auto 14px; height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;"><div id="bet-bar" class="progress-bar"></div></div>
         
         <div class="chips-row">
@@ -804,7 +816,15 @@ const socket = io();
         var myBetsThisRound = {"Bầu":0,"Cua":0,"Tôm":0,"Cá":0,"Nai":0,"Gà":0};
         var isInGame = false;
         var selectedAvatar = "10"; // Mặc định chọn ảnh 10.png
-
+        let currentPhase = "LOBBY";
+        let lastThrowTime = 0;
+function doThrowTomato(rank) {
+    const now = Date.now();
+    // Chặn spam: Phải cách nhau ít nhất 500ms (nửa giây) mới được ném 1 quả
+    if (now - lastThrowTime < 500) return; 
+    lastThrowTime = now;
+    socket.emit('throw_tomato', {rank: rank});
+}
         function pickChar(id, el) {
             selectedAvatar = id;
             document.querySelectorAll(".char-item").forEach(c => c.classList.remove("selected"));
@@ -1047,6 +1067,7 @@ const socket = io();
             myBetsThisRound = {"Bầu":0,"Cua":0,"Tôm":0,"Cá":0,"Nai":0,"Gà":0};
             document.getElementById("quiz-ui").classList.remove("hidden");
             document.getElementById("opts").style.display = "block";
+            document.getElementById("tomato-area").style.display = "none";
             document.getElementById("question-text").innerText = data.q;
             document.getElementById("q-status").innerText = "";
             document.getElementById("q-balance-info").style.display = "none";
@@ -1057,6 +1078,7 @@ const socket = io();
             const bar = document.getElementById("quiz-bar"); bar.style.transition = "none"; bar.style.width = "100%";
         });
         socket.on("switch_phase", data => {
+            currentPhase = data.phase;
             if (data.phase === "QUIZ") {
                 runSyncedBar("quiz-bar", data.end_time, data.duration || 15);
                 if (pendingQuote) { const el = document.getElementById("player-quote"); el.innerText = "💬 " + pendingQuote; el.style.display = "block"; pendingQuote = null; }
@@ -1084,7 +1106,22 @@ const socket = io();
             setTimeout(() => {
                 let totalWin = 0, totalBet = 0;
                 for (const [animal, betAmt] of Object.entries(myBetsThisRound)) {
-                    if (betAmt > 0) { totalBet += betAmt; const count = data.result.filter(r => r === animal).length; if (count > 0) totalWin += betAmt * count; }
+                    if (betAmt > 0) { 
+                        totalBet += betAmt; 
+                        const count = data.result.filter(r => r === animal).length; 
+                        if (count > 0) {
+                            // Công thức chuẩn: Tiền gốc + Tiền thắng
+                            let base_win = betAmt + (betAmt * count);
+                            
+                            // Nếu Server báo có Bonus 5% -> Nhân thêm 1.05
+                            if (data.is_bonus_active) {
+                                base_win = Math.floor(base_win * 1.05);
+                            }
+                            
+                            // Lợi nhuận thực tế (để hiện chữ Vuýt +) = Tổng thu về - Tiền vốn bỏ ra
+                            totalWin += (base_win - betAmt); 
+                        } 
+                    }
                 }
                 const msgEl = document.getElementById("result-msg");
                 if (totalBet === 0) { msgEl.innerText = "😴 Vòng này không đặt cược"; msgEl.style.color = "white"; msgEl.className = ""; }
@@ -1098,7 +1135,7 @@ const socket = io();
 
     const createMoney = () => {
         if (document.hidden) return;
-        if (document.querySelectorAll('.money-rain').length > 60) return;
+        if (document.querySelectorAll('.money-rain').length > 45) return;
     const money = document.createElement("img");
     money.src = moneyImages[Math.floor(Math.random() * moneyImages.length)];
     money.className = "money-rain";
@@ -1149,34 +1186,8 @@ const socket = io();
         // Tự động xóa thẻ div cho sạch rác DOM
         setTimeout(() => toast.remove(), 3500);
     });
-        socket.on("raid_result", data => {
-            const screen = document.getElementById("raid-screen");
-            const title  = document.getElementById("raid-title");
-            const msg    = document.getElementById("raid-msg");
-            
-            // Xóa class cũ, gán class mới tùy theo thoát hay bị bắt
-            screen.className = "show";
-            screen.classList.add(data.status === "SURVIVED" ? "raid-fake-bg" : "raid-real-bg");
-            
-            document.getElementById("raid-emoji").innerText = data.status === "SURVIVED" ? "🍀" : "🚨";
-            title.innerText = data.status === "SURVIVED" ? "THOÁT NẠN!" : "BỊ HỐT RỒI!";
-            title.style.color = data.status === "SURVIVED" ? "#76ff03" : "#ff1744";
-            
-            // Hiện dòng chữ "TOANG RỒI!\nBị tịch thu toàn bộ..." lên đây
-            msg.innerText = data.msg;
-
-            setTimeout(() => { 
-                screen.classList.remove("show"); 
-                siren.pause(); siren.currentTime = 0; 
-                
-                if (document.getElementById("quiz-ui").classList.contains("hidden") && document.getElementById("bet-ui").classList.contains("hidden")) {
-                    hideAll(); 
-                    document.getElementById("waiting").classList.remove("hidden"); 
-                    document.getElementById("wait-status").innerText = "⏳ Chuẩn bị vòng mới..."; 
-                }
-            }, 4000);
-        });
 function ans(i) {
+    if (currentPhase !== "QUIZ" || document.getElementById("opts").style.display === "none") return;
     socket.emit("submit_answer", {answer_index: i});
     
     // Ẩn nút chọn
@@ -1188,7 +1199,7 @@ function ans(i) {
         <div style="width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
             <span style="opacity:0.8; font-size:18px;">⏳ Đợi người chơi khác...</span>
         </div>`;
-    // --------------------
+    document.getElementById("tomato-area").style.display = "block";
 }
         let pendingQuote = null;
         socket.on("show_quote", data => { pendingQuote = data.text; if (!document.getElementById("quiz-ui").classList.contains("hidden")) { const el = document.getElementById("player-quote"); el.innerText = "💬 " + data.text; el.style.display = "block"; } });
@@ -1414,6 +1425,8 @@ socket.on("update_balance", data => {
     // Cập nhật luôn số dư ở màn hình sảnh chờ (để lúc nổ hũ/bị hốt sòng ra thấy tiền luôn)
     const waitBal = document.getElementById("wait-balance");
     if(waitBal) waitBal.innerText = "💰 Vốn: " + data.new_balance.toLocaleString("vi-VN") + "đ";
+    const qBalInfo = document.getElementById("q-balance-info");
+    if(qBalInfo) qBalInfo.innerText = `💰 Số tiền: ${data.new_balance.toLocaleString("vi-VN")}đ`;
 });
  </script>
 </body>
