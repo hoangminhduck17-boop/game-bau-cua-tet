@@ -209,16 +209,6 @@ QUESTIONS_DB = [
     ],
     "a": 3
   },
-  {
-    "q": "Mục đích chính của HS Code là gì?",
-    "options": [
-      "Kiểm soát tỷ giá hối đoái",
-      "Phân loại hàng hóa trong thương mại quốc tế",
-      "Xác định thuế thu nhập doanh nghiệp",
-      "Cấp phép xuất nhập cảnh"
-    ],
-    "a": 1
-  },
 ]
 
 # CÔNG CỤ HỖ TRỢ
