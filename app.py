@@ -3,7 +3,9 @@ eventlet.monkey_patch()
 import os
 import random
 import time
-import threading
+from eventlet.green import threading
+state_lock = threading.Lock()
+bet_lock = threading.Lock()
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
 
@@ -16,10 +18,11 @@ ADMIN_KEY = os.environ.get("ADMIN_KEY", "dev_key_local")
 
 players = {}
 pending_disconnect = {}
+
 def get_players_summary():
     return {sid: {
-        "name": p["name"], 
-        "avatar": p["avatar"], 
+        "name": p["name"],
+        "avatar": p["avatar"],
         "money": p["money"]
     } for sid, p in players.items()}
 
@@ -39,22 +42,27 @@ event_tracker = {
 }
 batched_bets = {"Bầu":0, "Cua":0, "Tôm":0, "Cá":0, "Nai":0, "Gà":0}
 is_batching = False
+is_list_updating = False
 
 def process_batch():
     global is_batching, batched_bets
-    # Chờ 400ms để gom tất cả các lệnh cược của 50 người
-    socketio.sleep(0.4) 
+    socketio.sleep(0.4)
     with app.app_context():
-        # Chỉ gửi 1 cục data và 1 lần update bảng xếp hạng
-        socketio.emit("host_update_bets_batched", batched_bets, room="host_screen")
+        with bet_lock:
+            data_to_send = batched_bets.copy()
+            batched_bets = {"Bầu":0, "Cua":0, "Tôm":0, "Cá":0, "Nai":0, "Gà":0}
+            is_batching = False
+        socketio.emit("host_update_bets_batched", data_to_send, room="host_screen")
         if game_state["phase"] == "BETTING":
-          socketio.emit("update_list", get_players_summary(), room="host_screen")
-        
-        # Reset lại giỏ chứa
-        batched_bets = {"Bầu":0, "Cua":0, "Tôm":0, "Cá":0, "Nai":0, "Gà":0}
-        is_batching = False
+            socketio.emit("update_list", get_players_summary(), room="host_screen")
 
-# DANH SÁCH CÂU NÓI ĐỘNG LỰC
+def process_list_update():
+    global is_list_updating
+    socketio.sleep(0.5)
+    with app.app_context():
+        socketio.emit("update_list", get_players_summary(), room="host_screen")
+        is_list_updating = False
+
 QUOTES = [
     "Phân đoạn rực rỡ nhất của một đời người không phải khoảnh khắc đạt được thành công, mà là quá trình dũng cảm và quyết tâm theo đuổi nó",
     "Học để biết, học để làm, học để chung sống, học để khẳng định mình",
@@ -84,15 +92,15 @@ QUESTIONS_DB = [
   {
     "q": "Nhập khẩu bộ ấm trà gốm kèm hộp carton in thương hiệu đẹp mắt nhưng chỉ dùng để đóng gói vận chuyển.",
     "options": [
-      "Áp dụng Quy tắc 5a",
-      "Áp dụng Quy tắc 5b",
+      "Áp dụng Quy tắc 5a: Bao bì chuyên dùng",
+      "Áp dụng Quy tắc 5b: Vật liệu bao gói",
       "Tách riêng mã hộp",
-      "Áp dụng Quy tắc 3c"
+      "Áp dụng Quy tắc 3c: Nhóm sau cùng"
     ],
     "a": 1
   },
   {
-    "q": "Sản phẩm: Bột cacao pha sữa (60% cacao, 40% sữa bột). Theo Quy tắc 2b: Tham chiếu đến một nguyên liệu bao gồm cả hỗn hợp của nguyên liệu đó, nhận định nào đúng?",
+    "q": "Sản phẩm: Bột cacao pha sữa (60% cacao, 40% sữa bột). Theo Quy tắc 2b: Hàng hóa là hỗn hợp hoặc hợp chất, nhận định nào đúng?",
     "options": [
       "Chỉ áp mã cacao",
       "Chỉ áp mã sữa",
@@ -171,33 +179,53 @@ QUESTIONS_DB = [
     ],
     "a": 2
   },
-  {
-    "q": "Mặt hàng 'Kem dưỡng da có chứa thành phần dược liệu' thuộc Nhóm 33.04. Chú giải Phân nhóm của Chương 33 quy định: 'Phân nhóm 3304.99 không bao gồm các chế phẩm có tác dụng điều trị bệnh ngoài da'. Theo Quy tắc 6, sản phẩm trên phải được phân loại thế nào?",
+ {
+    "q": "Một bộ sản phẩm gồm: một đôi giày da và một lọ xi đánh giày được đóng chung hộp để bán lẻ. Yếu tố nào tạo nên đặc trưng cơ bản của bộ sản phẩm?",
     "options": [
-      "Vẫn phân loại vào phân nhóm 3304.99 vì tên là kem dưỡng da.",
-      "Chuyển sang phân loại ở nhóm 30.04 (Thuốc).",
-      "Phân loại vào phân nhóm khác của 33.04 hoặc nhóm khác phù hợp vì đã bị loại trừ khỏi 3304.99.",
-      "Phân loại theo thành phần dược liệu chiếm tỷ lệ cao nhất."
+      "Lọ xi đánh giày",
+      "Cả 2",
+      "Đôi giày da",
+      "Hộp đựng bên ngoài"
     ],
     "a": 2
   },
   {
-    "q": "Mặt hàng 'Kem dưỡng da có chứa thành phần dược liệu' thuộc Nhóm 33.04. Chú giải Phân nhóm của Chương 33 quy định: 'Phân nhóm 3304.99 không bao gồm các chế phẩm có tác dụng điều trị bệnh ngoài da'. Theo Quy tắc 6, sản phẩm trên phải được phân loại thế nào?",
+    "q": "Trường hợp nào dưới đây được phân loại bao bì chung với hàng hóa?",
     "options": [
-      "Vẫn phân loại vào phân nhóm 3304.99 vì tên là kem dưỡng da.",
-      "Chuyển sang phân loại ở nhóm 30.04 (Thuốc).",
-      "Phân loại vào phân nhóm khác của 33.04 hoặc nhóm khác phù hợp vì đã bị loại trừ khỏi 3304.99.",
-      "Phân loại theo thành phần dược liệu chiếm tỷ lệ cao nhất."
+      "Hộp nhựa đựng bánh quy, có in hình đẹp, dùng để đựng đồ sau khi ăn hết bánh",
+      "Túi vải có quai được thiết kế riêng để đựng và bán kèm máy tính xách tay",
+      "Thùng carton thường dùng để đóng gói 20 thùng mì tôm",
+      "Lon thiếc đựng trà nhập khẩu, có nắp đậy kín"
     ],
     "a": 2
-  }
+  },
+  {
+    "q": "Một sản phẩm là thảm lót sàn ô tô bằng cao su vừa có thể phân loại vào nhóm 40.08 (Cao su) vừa có thể phân loại vào nhóm 87.08 (Phụ tùng ô tô). Theo Quy tắc 3a, sản phẩm này được phân loại thế nào?",
+    "options": [
+      "Nhóm 40.08 vì cao su là vật liệu chính",
+      "Nhóm 87.08 vì là phụ tùng ô tô",
+      "Nhóm nào có số thứ tự lớn hơn (87.08)",
+      "Nhóm Thảm và các loại dệt trải sàn"
+    ],
+    "a": 3
+  },
+  {
+    "q": "Mục đích chính của HS Code là gì?",
+    "options": [
+      "Kiểm soát tỷ giá hối đoái",
+      "Phân loại hàng hóa trong thương mại quốc tế",
+      "Xác định thuế thu nhập doanh nghiệp",
+      "Cấp phép xuất nhập cảnh"
+    ],
+    "a": 1
+  },
 ]
 
-# 🛠️ CÔNG CỤ HỖ TRỢ
+# CÔNG CỤ HỖ TRỢ
 def smart_sleep(seconds):
     end_time = time.time() + seconds
     while time.time() < end_time:
-        socketio.sleep(0.1) 
+        socketio.sleep(0.2)
         if not game_state["is_running"]: return False
         if len(players) == 0:
             print("⚠️ Hết người chơi -> Dừng game.")
@@ -238,6 +266,7 @@ def calculate_raid_chance(round_num, total_bet, total_assets):
 
     print(f"📊 Round {round_num}: Base={base_chance}, Ratio={ratio:.2f}(x{multiplier}), Calm={calm}(+{bonus}) => Final Chance: {final_chance*100:.1f}%")
     return final_chance
+
 # 🌐 ROUTES
 @app.route("/")
 def join(): return render_template("join.html")
@@ -250,12 +279,15 @@ def host():
 
 @app.route("/reset")
 def reset_server():
-    if request.args.get("key") != ADMIN_KEY: 
+    if request.args.get("key") != ADMIN_KEY:
         return "Lêu lêu! Sai key rồi, tính phá sòng à? 😜", 403
     game_state["is_running"] = False
     game_state["phase"] = "LOBBY"
     game_state["round_count"] = 0
     players.clear()
+    for timer in pending_disconnect.values():
+        timer.cancel()
+    pending_disconnect.clear()
     socketio.emit("force_reload", broadcast=True)
     return "Đã RESET server thành công!"
 
@@ -264,32 +296,26 @@ def reset_server():
 def on_host_join():
     join_room("host_screen")
     print(" 📺  Màn hình Host đã kết nối và vào phòng VIP!")
-    
+
     if game_state["is_running"]:
-        # 1. Suy luận Tiêu đề (Label) chuẩn xác dựa trên Phase hiện tại
         current_label = "SẴN SÀNG"
-        if game_state["phase"] == "QUIZ": 
+        if game_state["phase"] == "QUIZ":
             current_label = "ĐANG TRẢ LỜI CÂU HỎI"
-        elif game_state["phase"] == "BETTING": 
+        elif game_state["phase"] == "BETTING":
             current_label = "ĐANG ĐẶT CƯỢC"
-        elif game_state["phase"] == "ROLLING": 
+        elif game_state["phase"] == "ROLLING":
             current_label = "ĐANG LẮC... (Bonus +5%)" if event_tracker.get("is_bonus_active") else "ĐANG LẮC..."
         elif game_state["phase"] == "RESULT":
             current_label = "KẾT QUẢ (Đã +5%)" if event_tracker.get("is_bonus_active") else "KẾT QUẢ"
 
-        # 2. Bơm toàn bộ dữ liệu trạng thái hiện tại về cho Host vẽ lại UI
         emit("switch_phase", {
             "phase": game_state["phase"],
-            "label": current_label,                       # Trả lại tiêu đề đúng
+            "label": current_label,
             "end_time": game_state["end_time"],
-            "round": game_state["round_count"],           # Khôi phục số đếm câu hỏi (Câu: 1/10)
-            "total_questions": len(QUESTIONS_DB)          # Khôi phục tổng số câu
+            "round": game_state["round_count"],
+            "total_questions": len(QUESTIONS_DB)
         })
-        
-        # 3. Khôi phục bảng xếp hạng
         emit("update_list", get_players_summary())
-        
-        # 4. Khôi phục câu đạo lý (nếu có)
         if "current_quote" in game_state:
             emit("show_quote", {"text": game_state["current_quote"]})
 
@@ -314,7 +340,8 @@ def on_join(data):
         "current_bet_sum": 0,
         "used_questions": [],
         "has_answered": False,
-        "win_streak": 0
+        "win_streak": 0,
+        "last_bet_time": 0
     }
     emit("join_success", players[sid], room=sid)
     emit("update_list", get_players_summary(), broadcast=True)
@@ -322,11 +349,9 @@ def on_join(data):
 @socketio.on("ping_server")
 def handle_ping(client_t1):
     emit("pong_server", {
-        "server_time": time.time(), 
+        "server_time": time.time(),
         "t1": client_t1
     }, room=request.sid)
-
-# --- TÌM VÀ SỬA TRONG app.py ---
 
 @socketio.on("disconnect")
 def on_disconnect():
@@ -336,34 +361,31 @@ def on_disconnect():
 
         def delayed_remove():
             with app.app_context():
+                pending_disconnect.pop(sid, None)
                 if sid in players:
                     print(f"👋 Xóa vĩnh viễn {players[sid]['name']} do rớt quá lâu.")
                     del players[sid]
                     socketio.emit("update_list", get_players_summary(), room="host_screen")
-        
-        # SỬA Ở ĐÂY: Dùng eventlet thay vì threading.Timer
+
         if sid in pending_disconnect:
-            pending_disconnect[sid].cancel() # Hủy cái cũ nếu có
+            pending_disconnect[sid].cancel()
         pending_disconnect[sid] = eventlet.spawn_after(15.0, delayed_remove)
 
 @socketio.on("auto_reconnect")
 def auto_reconnect(data):
     sid = request.sid
     name = data.get("name", "").strip()
-    
+
     for old_sid, p in list(players.items()):
         if p["name"].lower() == name.lower():
             if old_sid in pending_disconnect:
-                pending_disconnect[old_sid].cancel() # .cancel() vẫn hoạt động với eventlet
+                pending_disconnect[old_sid].cancel()
                 del pending_disconnect[old_sid]
-            # ... (Phần bên dưới giữ nguyên) ...
-            
-            # Cấp lại thẻ căn cước mới (SID mới) cho dữ liệu cũ
+
             players[sid] = players.pop(old_sid)
             emit("join_success", players[sid], room=sid)
             print(f"🔄 {name} đã nối lại mạng thành công!")
-            
-            # Khôi phục màn hình hiện tại để họ chơi tiếp
+
             if game_state["is_running"]:
                 emit("switch_phase", {
                     "phase": game_state["phase"],
@@ -371,8 +393,7 @@ def auto_reconnect(data):
                     "end_time": game_state["end_time"],
                     "duration": 15
                 }, room=sid)
-                
-                # Nếu đang ở vòng câu hỏi, ném lại câu hỏi cho họ
+
                 if game_state["phase"] == "QUIZ" and "current_question" in players[sid]:
                     q = players[sid]["current_question"]
                     emit("player_new_question", {"q": q["q"], "options": q["options"]}, room=sid)
@@ -383,11 +404,10 @@ def game_loop_thread():
     with app.app_context():
         print("🚀 Game Loop bắt đầu chạy...")
 
-        # ── ĐẾM NGƯỢC 3 GIÂY TRƯỚC KHI VÀO GAME ──
         for i in range(3, 0, -1):
             socketio.emit("countdown_start", {"count": i})
             socketio.sleep(1)
-        socketio.emit("countdown_start", {"count": 0})   # 0 = bắt đầu!
+        socketio.emit("countdown_start", {"count": 0})
         socketio.sleep(0.3)
 
         event_tracker["rounds_without_event"] = 0
@@ -399,9 +419,9 @@ def game_loop_thread():
 
             if game_state["round_count"] >= len(QUESTIONS_DB):
                 print("🏁 Sắp hết game, hiện màn hình chờ...")
-                socketio.emit("pre_game_over") # Gửi tín hiệu hiện màn hình Game Over
-                socketio.sleep(4)              # Chờ 4 giây cho ngầu
-                socketio.emit("game_over", {"msg": "ĐÃ HẾT CÂU HỎI!"})
+                socketio.emit("pre_game_over")
+                socketio.sleep(4)
+                socketio.emit("game_over", {"msg": "ĐÃ HẾT CÂU HỎI!", "final_list": get_players_summary()})
                 game_state["is_running"] = False
                 break
 
@@ -460,28 +480,24 @@ def game_loop_thread():
             })
             if not smart_sleep(BETTING_DURATION): break
 
-            # 🛑 BỨC TƯỜNG THÉP: Khóa sổ ngay lập tức! Chặn mọi lệnh cược trễ.
+            # 🛑 BỨC TƯỜNG THÉP: Khóa sổ ngay lập tức!
             game_state["phase"] = "EVENT_PROCESSING"
 
-           # 🚨 LOGIC SỰ KIỆN: HỐT SÒNG (ĐÃ SỬA)
+            # 🚨 LOGIC SỰ KIỆN
             current_round = game_state["round_count"]
             event_type = "NONE"
 
-            # Công an thật: vòng 4, vòng 11
-            if current_round in [4, 11]:
-              event_type = "REAL"
-    # Báo động giả: vòng 2, vòng 9
-            elif current_round in [2, 9]:
-               event_type = "FAKE"
+            if current_round in [4, 12]:
+                event_type = "REAL"
+            elif current_round in [2, 7]:
+                event_type = "FAKE"
             else:
-               event_type = "NONE"
- 
-            # 3. Xử lý sự kiện
+                event_type = "NONE"
+
             if event_type == "FAKE":
                 print("🤡 Báo động giả!")
                 event_tracker["rounds_without_event"] = 0
-                event_tracker["is_bonus_active"] = True 
-
+                event_tracker["is_bonus_active"] = True
                 socketio.emit("raid_event", {"type": "FAKE"})
                 if not smart_sleep(4): break
 
@@ -490,27 +506,22 @@ def game_loop_thread():
                 event_tracker["rounds_without_event"] = 0
                 event_tracker["last_real_raid_round"] = game_state["round_count"]
 
-                # Lặp qua từng người để phán xét
                 for sid, p in list(players.items()):
-                    
-                    # Cứ 100 người thì 20 người thoát, random hoàn toàn độc lập!
+                    socketio.sleep(0)
                     if random.random() <= 0.20:
-                        # --- NGƯỜI THOÁT ---
                         p["money"] += p["current_bet_sum"]
                         socketio.emit("raid_result", {"status": "SURVIVED", "msg": "Mẹ gọi về ăn cơm!\nThoát nạn, được hoàn tiền."}, room=sid)
+                        socketio.emit("update_balance", {"new_balance": p["money"]}, room=sid)
                     else:
-                        # --- NGƯỜI BỊ BẮT ---
                         socketio.emit("raid_result", {"status": "BUSTED", "msg": "TOANG RỒI!\nBị tịch thu toàn bộ tiền cược."}, room=sid)
-                    
-                    # XÓA SẠCH TIỀN CƯỢC TRÊN SERVER KHỎI BỊ CỘNG NHẦM
+
                     p["current_bet"] = {"Bầu":0,"Cua":0,"Tôm":0,"Cá":0,"Nai":0,"Gà":0}
                     p["current_bet_sum"] = 0
 
                 socketio.emit("raid_event", {"type": "REAL"})
                 socketio.emit("update_list", get_players_summary())
-
                 if not smart_sleep(4): break
-                continue 
+                continue
 
             else:
                 event_tracker["rounds_without_event"] += 1
@@ -519,25 +530,21 @@ def game_loop_thread():
             ROLLING_DURATION = 4
             game_state["phase"] = "ROLLING"
             game_state["end_time"] = time.time() + ROLLING_DURATION
-            
-            # --- THÊM 2 DÒNG NÀY ĐỂ RESET LÌ XÌ MỖI VÒNG ---
             game_state["lixi_left"] = 15
             game_state["lixi_winners"] = []
 
             dices = ["Bầu","Cua","Tôm","Cá","Nai","Gà"]
             current_round = game_state["round_count"]
 
-    # Ép Nổ Hũ ở vòng 3 và vòng 7
-            if current_round in [3, 7]:
-                 lucky_animal = random.choice(dices) # Chọn ngẫu nhiên 1 con làm nổ hũ
-                 result = [lucky_animal, lucky_animal, lucky_animal]
-                 jackpot = True
+            if current_round in [5, 9]:
+                lucky_animal = random.choice(dices)
+                result = [lucky_animal, lucky_animal, lucky_animal]
+                jackpot = True
             else:
-        # Các vòng khác lắc bình thường
-                  result = [random.choice(dices) for _ in range(3)]
-                  jackpot = len(set(result)) == 1
+                result = [random.choice(dices) for _ in range(3)]
+                jackpot = len(set(result)) == 1
 
-            game_state["last_result"] = {"result": result, "is_jackpot": jackpot}
+            game_state["last_result"] = {"result": result, "is_jackpot": jackpot, "is_bonus_active": event_tracker["is_bonus_active"]}
 
             label_text = "ĐANG LẮC..."
             if event_tracker["is_bonus_active"]:
@@ -554,35 +561,38 @@ def game_loop_thread():
 
             # === PHASE 5: KẾT QUẢ & TRẢ THƯỞNG (6s) ===
             game_state["phase"] = "RESULT"
-            for sid, p in list(players.items()): 
-               win = 0
-            for animal, bet in p["current_bet"].items():
-                if bet > 0:
-                    count = result.count(animal)
-                    if count > 0:
-                        base_win = bet + bet * count
-                        if event_tracker["is_bonus_active"]:
-                            base_win = int(base_win * 1.05)
-                        win += base_win
-            
-            p["money"] += win
-            socketio.emit("update_balance", {"new_balance": p["money"]}, room=sid)
-            # --- LOGIC XÉT CHUỖI THẮNG ---
-            total_bet_amount = sum(p["current_bet"].values())
-            if total_bet_amount > 0: # Chỉ xét nếu vòng này có đặt cược
-                if win > 0:
-                    p["win_streak"] += 1
-                    if p["win_streak"] == 3:
-                        # Thưởng nóng con số may mắn lẻ loi
-                        lucky_bonus = random.choice([68686, 88888, 79797, 99999])
-                        p["money"] += lucky_bonus
-                        p["win_streak"] = 0 # Nhận xong thì reset chuỗi
-                        
-                        # Bắn pháo sáng báo tin vui riêng cho điện thoại người này
-                        socketio.emit("streak_reward", {"bonus": lucky_bonus}, room=sid)
-                else:
-                    # Cược mà trượt thì mất chuỗi
-                    p["win_streak"] = 0
+
+            # Snapshot cược trước khi yield để tránh race condition
+            bet_snapshot = {sid: dict(p["current_bet"]) for sid, p in list(players.items())}
+
+            for sid, p in list(players.items()):
+                socketio.sleep(0)  # yield an toàn vì đã snapshot rồi
+                win = 0
+                for animal, bet in bet_snapshot.get(sid, {}).items():
+                    if bet > 0:
+                        count = result.count(animal)
+                        if count > 0:
+                            base_win = bet + bet * count
+                            if event_tracker["is_bonus_active"]:
+                                base_win = int(base_win * 1.05)
+                            win += base_win
+
+                p["money"] += win  # ← ĐÚNG: nằm TRONG vòng for
+                socketio.emit("update_balance", {"new_balance": p["money"]}, room=sid)
+
+                # --- LOGIC XÉT CHUỖI THẮNG ---
+                total_bet_amount = sum(bet_snapshot.get(sid, {}).values())
+                if total_bet_amount > 0:
+                    if win > 0:
+                        p["win_streak"] += 1
+                        if p["win_streak"] == 3:
+                            lucky_bonus = random.choice([68686, 88888, 79797, 99999])
+                            p["money"] += lucky_bonus
+                            p["win_streak"] = 0
+                            socketio.emit("streak_reward", {"bonus": lucky_bonus}, room=sid)
+                            socketio.emit("update_balance", {"new_balance": p["money"]}, room=sid)
+                    else:
+                        p["win_streak"] = 0
 
             socketio.emit("dice_result", game_state["last_result"])
             socketio.emit("update_list", get_players_summary(), room="host_screen")
@@ -622,7 +632,7 @@ def stop_game():
     game_state["is_running"] = False
     game_state["phase"] = "LOBBY"
     game_state["round_count"] = 0
-    players.clear() 
+    players.clear()
     emit("force_reload", broadcast=True)
 
 @socketio.on("submit_answer")
@@ -638,51 +648,48 @@ def submit_answer(data):
 
     correct = (idx == p["current_question"]["a"])
     if correct:
-        # --- LOGIC THƯỞNG TỐC ĐỘ ---
-        # 1. Tính số giây người chơi đã dùng
         time_taken = time.time() - game_state.get("start_time", time.time())
         if time_taken < 0: time_taken = 0
         if time_taken > 15: time_taken = 15
-        
-        # 2. Tiền gốc 100k + Tiền thưởng tốc độ (tối đa 100k, giảm dần theo thời gian)
+
         speed_bonus = int(100000 * (1 - (time_taken / 15)))
         total_reward = 100000 + speed_bonus
-        
+
         p["money"] += total_reward
-        
-        # 3. Tạo câu thông báo ngầu ngầu (ví dụ: TỐC ĐỘ 1.2s: +198.500đ)
+
         formatted_money = f"{total_reward:,}".replace(",", ".")
         msg = f"GIỎI DỊ: +{formatted_money}"
     else:
         msg = "Sai rồi kkkkkk"
+
     emit("answer_result", {"correct": correct, "msg": msg, "new_balance": p["money"]}, room=sid)
-    emit("update_list", get_players_summary(), room="host_screen")
+    global is_list_updating
+    if not is_list_updating:
+        is_list_updating = True
+        eventlet.spawn(process_list_update)
+
 @socketio.on("grab_lixi")
 def grab_lixi():
     sid = request.sid
-    # Chỉ cho phép giật lúc đang lắc xí ngầu
     if sid not in players or game_state.get("phase") != "ROLLING": return
-    
-    # Một người chỉ được giật 1 bao duy nhất mỗi vòng
-    if sid in game_state.get("lixi_winners", []): return 
-    
-    # Kiểm tra xem có còn bao lì xì nào không (Tối đa 5 người nhanh nhất)
-    if game_state.get("lixi_left", 0) > 0:
-        game_state["lixi_left"] -= 1
-        game_state["lixi_winners"].append(sid)
-        
-        # Bốc ngẫu nhiên 1 số tiền lẻ may mắn
+    if sid in game_state.get("lixi_winners", []): return
+
+    with state_lock:
+        if game_state.get("lixi_left", 0) > 0:
+            game_state["lixi_left"] -= 1
+            game_state["lixi_winners"].append(sid)
+            success = True
+        else:
+            success = False
+
+    if success:
         reward = random.choice([6868, 8888, 3979, 7979, 68686, 39790])
         players[sid]["money"] += reward
-        
-        # Báo tin vui về riêng cho điện thoại người giật được
         emit("lixi_success", {
-            "reward": reward, 
+            "reward": reward,
             "new_balance": players[sid]["money"]
         }, room=sid)
         socketio.emit("update_list", get_players_summary(), room="host_screen")
-        
-        # Nếu vừa giật mất cái cuối cùng, báo cho cả phòng biết là hết rồi
         if game_state["lixi_left"] == 0:
             socketio.emit("lixi_empty")
 
@@ -691,6 +698,10 @@ def place_bet(data):
     sid = request.sid
     if sid not in players or game_state["phase"] != "BETTING": return
     p = players[sid]
+    now = time.time()
+    if now - p.get("last_bet_time", 0) < 0.1:
+        return
+    p["last_bet_time"] = now
     try:
         animal = data["animal"]
         amount = int(data["amount"])
@@ -705,12 +716,36 @@ def place_bet(data):
         p["current_bet_sum"] += amount
         emit("bet_success", {"new_balance": p["money"], "animal": animal, "bet_amount": p["current_bet"][animal]}, room=sid)
         global is_batching, batched_bets
-        batched_bets[animal] += amount
-        if not is_batching:
-            is_batching = True
-            eventlet.spawn(process_batch)
+        with bet_lock:
+            batched_bets[animal] += amount
+            if not is_batching:
+                is_batching = True
+                eventlet.spawn(process_batch)
+
+@socketio.on("throw_tomato")
+def throw_tomato(data):
+    sid = request.sid
+    if sid not in players: return
+
+    sorted_players = sorted(players.items(), key=lambda x: x[1]["money"], reverse=True)
+    try:
+        rank = int(data.get("rank", 0))
+        if rank >= len(sorted_players): return
+
+        target_sid = sorted_players[rank][0]
+        p = players[sid]
+
+        if p["money"] >= 2000:
+            p["money"] -= 2000
+            emit("update_balance", {"new_balance": p["money"]}, room=sid)
+            socketio.emit("host_tomato_thrown", {
+                "shooter_name": p["name"],
+                "target_id": target_sid
+            }, room="host_screen")
+            socketio.emit("update_list", get_players_summary(), room="host_screen")
+    except Exception as e:
+        pass
+
 if __name__ == "__main__":
-     port = int(os.environ.get("PORT", 5000))
-     socketio.run(app, host="0.0.0.0", port=port, debug=False)
-
-
+    port = int(os.environ.get("PORT", 5000))
+    socketio.run(app, host="0.0.0.0", port=port, debug=False)
