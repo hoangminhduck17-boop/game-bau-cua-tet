@@ -80,72 +80,72 @@ QUOTES = [
 
 QUESTIONS_DB = [
   {
-    "q": "Nhập khẩu máy ảnh kèm túi da chuyên dụng thiết kế theo kích thước máy, túi dùng lâu dài và bán kèm.",
+    "q": "HS Code là viết tắt của:",
     "options": [
-      "Tách riêng mã túi da",
-      "Áp dụng Quy tắc 5b: Vật liệu bao gói",
-      "Áp dụng Quy tắc 5a: Hộp, bao bì chuyên dùng",
-      "Áp dụng Quy tắc 3a: Tiêu đề cụ thể nhất"
-    ],
-    "a": 2
-  },
-  {
-    "q": "Nhập khẩu bộ ấm trà gốm kèm hộp carton in thương hiệu đẹp mắt nhưng chỉ dùng để đóng gói vận chuyển.",
-    "options": [
-      "Áp dụng Quy tắc 5a: Bao bì chuyên dùng",
-      "Áp dụng Quy tắc 5b: Vật liệu bao gói",
-      "Tách riêng mã hộp",
-      "Áp dụng Quy tắc 3c: Nhóm sau cùng"
+      "Harmonized Shipping Code",
+      "Harmonized System Code",
+      "High Standard Code",
+      "Harmonized Service Code"
     ],
     "a": 1
   },
   {
-    "q": "Sản phẩm: Bột cacao pha sữa (60% cacao, 40% sữa bột). Theo Quy tắc 2b: Hàng hóa là hỗn hợp hoặc hợp chất, nhận định nào đúng?",
+    "q": "Hệ thống HS do tổ chức nào quản lý?",
     "options": [
-      "Chỉ áp mã cacao",
-      "Chỉ áp mã sữa",
-      "Quy tắc 2b không quyết định dứt điểm và phải chuyển sang Quy tắc 3",
-      "Áp mã theo nguyên liệu có tỷ lệ cao hơn"
+      "WTO",
+      "IMF",
+      "WCO",
+      "UNCTAD"
     ],
     "a": 2
   },
   {
-    "q": "Một lô hàng gồm 100 bộ xe máy tháo rời hoàn toàn (CKD) để tiện vận chuyển. Mỗi bộ gồm đầy đủ khung, động cơ, bánh xe, ốc vít… Phát biểu nào chính xác?",
+    "q": "Một mã HS chuẩn quốc tế gồm bao nhiêu chữ số?",
     "options": [
-      "Theo Quy tắc 2a: Hàng ở dạng tháo rời nhưng đầy đủ bộ phận vẫn áp mã xe máy hoàn chỉnh",
-      "Phải phân loại riêng động cơ, khung, bánh xe",
-      "Theo Quy tắc 2b: Hàng hóa là hỗn hợp hoặc hợp chất vì có nhiều vật liệu",
-      "Theo Quy tắc 3a: Tiêu đề cụ thể nhất vì có nhiều nhóm phù hợp"
+      "4 số",
+      "6 số",
+      "8 số",
+      "10 số"
     ],
-    "a": 0
+    "a": 1
   },
   {
-    "q": "Bộ dụng cụ sửa chữa gồm: búa (82.05), kìm (82.03), tua vít (82.04) và hộp đựng bằng nhựa (42.02). Nếu xác định được công dụng chính là 'sửa chữa cơ bản', yếu tố nào quyết định phân loại theo Quy tắc 3b?",
+    "q": "Hai số đầu tiên của mã HS thể hiện:",
     "options": [
-      "Hộp đựng",
-      "Búa - công cụ đa năng nhất",
-      "Toàn bộ công cụ kết hợp",
-      "Không xác định được → chuyển Quy tắc 3c: Nhóm sau cùng"
+      "Nhóm hàng",
+      "Phân nhóm",
+      "Chương",
+      "Tiểu mục"
     ],
     "a": 2
   },
   {
-    "q": "Một bộ sản phẩm gồm: bút bi (96.08), thước kẻ (90.17), gôm tẩy (40.12). Cả ba đều có vai trò ngang nhau trong bộ dụng cụ học tập. Theo Quy tắc 3c: Nhóm sau cùng, chọn nhóm nào?",
+    "q": "Bốn số đầu của mã HS thể hiện:",
     "options": [
-      "96.08",
-      "90.17",
-      "40.12",
+      "Chương",
+      "Nhóm hàng",
+      "Phân nhóm phụ",
+      "Mô tả chi tiết hàng hóa"
+    ],
+    "a": 1
+  },
+  {
+    "q": "Sản phẩm Bút thông minh có thể viết và số hóa chữ viết. Phân loại theo Quy tắc 4?",
+    "options": [
+      "Nhóm 9608 (Bút viết) 96.08",
+      "Nhóm 8471 (Thiết bị ngoại vi máy tính)",
+      "Nhóm 8517 (Thiết bị truyền thông)",
       "Cả 3 nhóm đều đúng"
     ],
-    "a": 0
+    "a": 1
   },
   {
-    "q": "Sản phẩm 'Gối massage cổ bằng thảo dược' có hình dáng giống gối ngủ, công dụng giống thiết bị massage, không có mã riêng. Theo Quy tắc 4: Hàng hóa giống nhất, nên phân loại vào nhóm nào?",
+    "q": "Theo Quy tắc 2a, một sản phẩm chưa hoàn chỉnh nhưng đã mang đặc trưng cơ bản của sản phẩm hoàn chỉnh thì được phân loại như thế nào?",
     "options": [
-      "94.04 - Gối ngủ",
-      "90.19 - Thiết bị massage",
-      "30.03 - Thuốc thảo dược",
-      "63.09 - Hàng dệt may cũ"
+      "Phân loại vào nhóm riêng cho hàng chưa hoàn chỉnh",
+      "Phân loại vào nhóm của sản phẩm hoàn chỉnh ",
+      "Phân loại theo nguyên liệu cấu thành",
+      ". Không thể phân loại, phải chờ lắp ráp "
     ],
     "a": 1
   },
@@ -160,24 +160,24 @@ QUESTIONS_DB = [
     "a": 1
   },
   {
-    "q": "Khi phân loại một loại ghế sofa đã xác định thuộc Nhóm 94.01, để chọn giữa hai phân nhóm 9401.61 (ghế bọc đệm, khung gỗ) và 9401.69 (ghế khung gỗ, loại khác), người khai hải quan phải làm gì?",
+    "q": "Trường hợp nào dưới đây KHÔNG thuộc phạm vi áp dụng của Quy tắc 2a?",
     "options": [
-      "So sánh nội dung của hai phân nhóm 9401.61 và 9401.69 với nhau.",
-      "So sánh Nhóm 94.01 với Chương 94.",
-      "So sánh phân nhóm 9401.61 với nhóm 94.03 (đồ nội thất khác).",
-      "Tra cứu ý định của nhà soạn luật trên internet."
-    ],
-    "a": 0
-  },
-  {
-    "q": "Mặt hàng 'Kem dưỡng da có chứa thành phần dược liệu' thuộc Nhóm 33.04. Chú giải Phân nhóm của Chương 33 quy định: 'Phân nhóm 3304.99 không bao gồm các chế phẩm có tác dụng điều trị bệnh ngoài da'. Theo Quy tắc 6, sản phẩm trên phải được phân loại thế nào?",
-    "options": [
-      "Vẫn phân loại vào phân nhóm 3304.99 vì tên là kem dưỡng da.",
-      "Chuyển sang phân loại ở nhóm 30.04 (Thuốc).",
-      "Phân loại vào phân nhóm khác của 33.04 hoặc nhóm khác phù hợp vì đã bị loại trừ khỏi 3304.99.",
-      "Phân loại theo thành phần dược liệu chiếm tỷ lệ cao nhất."
+      "Một chiếc xe máy chưa lắp bánh xe và đèn pha nhưng có khung và động cơ ",
+      "Một bộ bàn gỗ được tháo rời thành các tấm gỗ, ốc vít để đóng gói",
+      "Một linh kiện điện tử rời rạc không thể hoạt động độc lập",
+      "Một máy tính thiếu bàn phím nhưng vẫn có thể hoạt động cơ bản"
     ],
     "a": 2
+  },
+  {
+    "q": "Sữa tươi bổ sung vitamin là ví dụ cho Quy tắc 2b. Tại sao sản phẩm này vẫn được phân loại vào nhóm sữa (04.01)?",
+    "options": [
+      "Vì vitamin không làm thay đổi bản chất của sữa ",
+      "Vì sữa chiếm tỷ trọng lớn",
+      "Vì vitamin là phụ gia không đáng kể",
+      "Tất cả các lý do trên đều đúng"
+    ],
+    "a": 0
   },
  {
     "q": "Một bộ sản phẩm gồm: một đôi giày da và một lọ xi đánh giày được đóng chung hộp để bán lẻ. Yếu tố nào tạo nên đặc trưng cơ bản của bộ sản phẩm?",
@@ -208,6 +208,36 @@ QUESTIONS_DB = [
       "Nhóm Thảm và các loại dệt trải sàn"
     ],
     "a": 3
+  },
+  {
+    "q": "Quy tắc 6 hướng dẫn việc phân loại hàng hóa ở cấp độ nào?",
+    "options": [
+      "Cấp độ nhóm (4 chữ số)",
+      "Cấp độ phân nhóm (6 hoặc 8 chữ số) ",
+      "Cấp độ chương",
+      "Cấp độ phần"
+    ],
+    "a": 1
+  },
+  {
+    "q": "Khi phân loại hàng hóa ở cấp độ 8 chữ số, nếu có sự mâu thuẫn giữa chú giải của phân nhóm và chú giải của chương, thì ưu tiên theo yếu tố nào? ",
+    "options": [
+      "Chú giải phân nhóm",
+      "Chú giải chương",
+      "Cả hai đều quan trọng",
+      "Tùy từng trường hợp "
+    ],
+    "a": 0
+  },
+  {
+    "q": "Một sản phẩm có thể phân loại vào hai phân nhóm khác nhau cùng cấp độ. Theo Quy tắc 6, cần áp dụng các quy tắc nào để chọn?",
+    "options": [
+      "Chỉ áp dụng Quy tắc 1",
+      "Áp dụng các quy tắc 1 đến 5 tương tự như ở cấp độ nhóm",
+      "Áp dụng Quy tắc 3c",
+      "Áp dụng Quy tắc 4"
+    ],
+    "a": 1
   },
 ]
 
@@ -477,7 +507,7 @@ def game_loop_thread():
             current_round = game_state["round_count"]
             event_type = "NONE"
 
-            if current_round in [4, 12]:
+            if current_round in [5, 11, 14]:
                 event_type = "REAL"
             elif current_round in [2, 7]:
                 event_type = "FAKE"
@@ -526,7 +556,7 @@ def game_loop_thread():
             dices = ["Bầu","Cua","Tôm","Cá","Nai","Gà"]
             current_round = game_state["round_count"]
 
-            if current_round in [5, 9]:
+            if current_round in [6, 9, 16]:
                 lucky_animal = random.choice(dices)
                 result = [lucky_animal, lucky_animal, lucky_animal]
                 jackpot = True
