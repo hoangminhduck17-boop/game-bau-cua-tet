@@ -1,6 +1,7 @@
 import eventlet
 eventlet.monkey_patch()
 import os
+import pandas as pd
 import random
 import time
 from eventlet.green import threading
@@ -78,168 +79,29 @@ QUOTES = [
     "Tất cả những sự khó khăn thường là để chuẩn bị cho những người bình thường một số phận phi thường",
 ]
 
-QUESTIONS_DB = [
-  {
-    "q": "HS Code là viết tắt của:",
-    "options": [
-      "Harmonized Shipping Code",
-      "Harmonized System Code",
-      "High Standard Code",
-      "Harmonized Service Code"
-    ],
-    "a": 1
-  },
-  {
-    "q": "Hệ thống HS do tổ chức nào quản lý?",
-    "options": [
-      "WTO",
-      "IMF",
-      "WCO",
-      "UNCTAD"
-    ],
-    "a": 2
-  },
-  {
-    "q": "Một mã HS chuẩn quốc tế gồm bao nhiêu chữ số?",
-    "options": [
-      "4 số",
-      "6 số",
-      "8 số",
-      "10 số"
-    ],
-    "a": 1
-  },
-  {
-    "q": "Hai số đầu tiên của mã HS thể hiện:",
-    "options": [
-      "Nhóm hàng",
-      "Phân nhóm",
-      "Chương",
-      "Tiểu mục"
-    ],
-    "a": 2
-  },
-  {
-    "q": "Bốn số đầu của mã HS thể hiện:",
-    "options": [
-      "Chương",
-      "Nhóm hàng",
-      "Phân nhóm phụ",
-      "Mô tả chi tiết hàng hóa"
-    ],
-    "a": 1
-  },
-  {
-    "q": "Sản phẩm Bút thông minh có thể viết và số hóa chữ viết. Phân loại theo Quy tắc 4?",
-    "options": [
-      "Nhóm 9608 (Bút viết) 96.08",
-      "Nhóm 8471 (Thiết bị ngoại vi máy tính)",
-      "Nhóm 8517 (Thiết bị truyền thông)",
-      "Cả 3 nhóm đều đúng"
-    ],
-    "a": 1
-  },
-  {
-    "q": "Theo Quy tắc 2a, một sản phẩm chưa hoàn chỉnh nhưng đã mang đặc trưng cơ bản của sản phẩm hoàn chỉnh thì được phân loại như thế nào?",
-    "options": [
-      "Phân loại vào nhóm riêng cho hàng chưa hoàn chỉnh",
-      "Phân loại vào nhóm của sản phẩm hoàn chỉnh ",
-      "Phân loại theo nguyên liệu cấu thành",
-      ". Không thể phân loại, phải chờ lắp ráp "
-    ],
-    "a": 1
-  },
-  {
-    "q": "Một loại 'Nước uống bổ sung collagen dạng ống' được bán trong các hiệu thuốc và cửa hàng thực phẩm chức năng. Theo Quy tắc 4: Hàng hóa giống nhất, sản phẩm này giống nhất với nhóm nào?",
-    "options": [
-      "22.02 - Nước giải khát",
-      "21.06 - Thực phẩm chức năng",
-      "30.04 - Thuốc",
-      "33.07 - Sản phẩm vệ sinh"
-    ],
-    "a": 1
-  },
-  {
-    "q": "Trường hợp nào dưới đây KHÔNG thuộc phạm vi áp dụng của Quy tắc 2a?",
-    "options": [
-      "Một chiếc xe máy chưa lắp bánh xe và đèn pha nhưng có khung và động cơ ",
-      "Một bộ bàn gỗ được tháo rời thành các tấm gỗ, ốc vít để đóng gói",
-      "Một linh kiện điện tử rời rạc không thể hoạt động độc lập",
-      "Một máy tính thiếu bàn phím nhưng vẫn có thể hoạt động cơ bản"
-    ],
-    "a": 2
-  },
-  {
-    "q": "Sữa tươi bổ sung vitamin là ví dụ cho Quy tắc 2b. Tại sao sản phẩm này vẫn được phân loại vào nhóm sữa (04.01)?",
-    "options": [
-      "Vì vitamin không làm thay đổi bản chất của sữa ",
-      "Vì sữa chiếm tỷ trọng lớn",
-      "Vì vitamin là phụ gia không đáng kể",
-      "Tất cả các lý do trên đều đúng"
-    ],
-    "a": 0
-  },
- {
-    "q": "Một bộ sản phẩm gồm: một đôi giày da và một lọ xi đánh giày được đóng chung hộp để bán lẻ. Yếu tố nào tạo nên đặc trưng cơ bản của bộ sản phẩm?",
-    "options": [
-      "Lọ xi đánh giày",
-      "Cả 2",
-      "Đôi giày da",
-      "Hộp đựng bên ngoài"
-    ],
-    "a": 2
-  },
-  {
-    "q": "Trường hợp nào dưới đây được phân loại bao bì chung với hàng hóa?",
-    "options": [
-      "Hộp nhựa đựng bánh quy, có in hình đẹp, dùng để đựng đồ sau khi ăn hết bánh",
-      "Túi vải có quai được thiết kế riêng để đựng và bán kèm máy tính xách tay",
-      "Thùng carton thường dùng để đóng gói 20 thùng mì tôm",
-      "Lon thiếc đựng trà nhập khẩu, có nắp đậy kín"
-    ],
-    "a": 2
-  },
-  {
-    "q": "Một sản phẩm là thảm lót sàn ô tô bằng cao su vừa có thể phân loại vào nhóm 40.08 (Cao su) vừa có thể phân loại vào nhóm 87.08 (Phụ tùng ô tô). Theo Quy tắc 3a, sản phẩm này được phân loại thế nào?",
-    "options": [
-      "Nhóm 40.08 vì cao su là vật liệu chính",
-      "Nhóm 87.08 vì là phụ tùng ô tô",
-      "Nhóm nào có số thứ tự lớn hơn (87.08)",
-      "Nhóm Thảm và các loại dệt trải sàn"
-    ],
-    "a": 3
-  },
-  {
-    "q": "Quy tắc 6 hướng dẫn việc phân loại hàng hóa ở cấp độ nào?",
-    "options": [
-      "Cấp độ nhóm (4 chữ số)",
-      "Cấp độ phân nhóm (6 hoặc 8 chữ số) ",
-      "Cấp độ chương",
-      "Cấp độ phần"
-    ],
-    "a": 1
-  },
-  {
-    "q": "Khi phân loại hàng hóa ở cấp độ 8 chữ số, nếu có sự mâu thuẫn giữa chú giải của phân nhóm và chú giải của chương, thì ưu tiên theo yếu tố nào? ",
-    "options": [
-      "Chú giải phân nhóm",
-      "Chú giải chương",
-      "Cả hai đều quan trọng",
-      "Tùy từng trường hợp "
-    ],
-    "a": 0
-  },
-  {
-    "q": "Một sản phẩm có thể phân loại vào hai phân nhóm khác nhau cùng cấp độ. Theo Quy tắc 6, cần áp dụng các quy tắc nào để chọn?",
-    "options": [
-      "Chỉ áp dụng Quy tắc 1",
-      "Áp dụng các quy tắc 1 đến 5 tương tự như ở cấp độ nhóm",
-      "Áp dụng Quy tắc 3c",
-      "Áp dụng Quy tắc 4"
-    ],
-    "a": 1
-  },
-]
+def load_questions_from_excel():
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, "cau_hoi.xlsx")
+        df = pd.read_excel(file_path)
+        questions = []
+        for _, row in df.iterrows():
+            questions.append({
+                "q": str(row["Câu hỏi"]).strip(),
+                "options": [
+                    str(row["Lựa chọn 1"]).strip(),
+                    str(row["Lựa chọn 2"]).strip(),
+                    str(row["Lựa chọn 3"]).strip(),
+                    str(row["Lựa chọn 4"]).strip()
+                ],
+                "a": int(row["Đáp án"])
+            })
+        print(f"✅ Đã nạp thành công {len(questions)} câu hỏi từ {file_path}!")
+        return questions
+    except Exception as e:
+        print(f"❌ Không thể đọc file Excel. Lỗi: {e}")
+        return []
+QUESTIONS_DB = load_questions_from_excel()
 
 # CÔNG CỤ HỖ TRỢ
 def smart_sleep(seconds):
@@ -254,37 +116,14 @@ def smart_sleep(seconds):
             return False
     return True
 
-def calculate_raid_chance(round_num, total_bet, total_assets):
-    base_chance = 0
-    if round_num <= 2: base_chance = 0
-    elif 3 <= round_num <= 4: base_chance = 0.05
-    elif 5 <= round_num <= 7: base_chance = 0.08
-    elif 8 <= round_num <= 10: base_chance = 0.11
-    else: base_chance = 0.14
-
-    if total_assets == 0: ratio = 0
-    else: ratio = total_bet / total_assets
-
-    multiplier = 1.0
-    if ratio < 0.15: multiplier = 1.0
-    elif 0.15 <= ratio < 0.30: multiplier = 1.3
-    elif 0.30 <= ratio < 0.50: multiplier = 1.6
-    else: multiplier = 2.0
-
-    bonus = 0
-    calm = event_tracker["rounds_without_event"]
-    if calm >= 8: bonus = 0.06
-    elif calm >= 6: bonus = 0.04
-    elif calm >= 4: bonus = 0.02
-
-    final_chance = (base_chance * multiplier) + bonus
-    if final_chance > 0.22: final_chance = 0.22
-
-    if round_num - event_tracker["last_real_raid_round"] <= 2:
+def calculate_raid_chance(round_num, event_tracker):
+    if round_num <= 2: 
+        return 0
+    if round_num - event_tracker.get("last_real_raid_round", -99) <= 2:
         print(f"🛡️ Round {round_num}: Đang Cooldown sự kiện.")
         return 0
-
-    print(f"📊 Round {round_num}: Base={base_chance}, Ratio={ratio:.2f}(x{multiplier}), Calm={calm}(+{bonus}) => Final Chance: {final_chance*100:.1f}%")
+    final_chance = 0.3
+    print(f"📊 Round {round_num}: Xác suất có biến (cố định): {final_chance*100:.1f}%")
     return final_chance
 
 # 🌐 ROUTES
@@ -506,25 +345,20 @@ def game_loop_thread():
             # 🚨 LOGIC SỰ KIỆN
             current_round = game_state["round_count"]
             event_type = "NONE"
-
-            if current_round in [5, 11, 14]:
-                event_type = "REAL"
-            elif current_round in [2, 7]:
-                event_type = "FAKE"
-            else:
-                event_type = "NONE"
-
+            raid_probability = calculate_raid_chance(current_round, event_tracker)
+            if random.random() < raid_probability:
+                if random.random() < 0.30:
+                    event_type = "FAKE"
+                else:
+                    event_type = "REAL"
             if event_type == "FAKE":
                 print("🤡 Báo động giả!")
-                event_tracker["rounds_without_event"] = 0
                 event_tracker["is_bonus_active"] = True
                 socketio.emit("raid_event", {"type": "FAKE"})
                 if not smart_sleep(4): break
-
             elif event_type == "REAL":
                 print("🚨 CÔNG AN HỐT SÒNG THẬT!")
-                event_tracker["rounds_without_event"] = 0
-                event_tracker["last_real_raid_round"] = game_state["round_count"]
+                event_tracker["last_real_raid_round"] = current_round
 
                 for sid, p in list(players.items()):
                     socketio.sleep(0)
@@ -581,12 +415,10 @@ def game_loop_thread():
 
             # === PHASE 5: KẾT QUẢ & TRẢ THƯỞNG (6s) ===
             game_state["phase"] = "RESULT"
-
-            # Snapshot cược trước khi yield để tránh race condition
             bet_snapshot = {sid: dict(p["current_bet"]) for sid, p in list(players.items())}
 
             for sid, p in list(players.items()):
-                socketio.sleep(0)  # yield an toàn vì đã snapshot rồi
+                socketio.sleep(0)  
                 win = 0
                 for animal, bet in bet_snapshot.get(sid, {}).items():
                     if bet > 0:
@@ -597,7 +429,7 @@ def game_loop_thread():
                                 base_win = int(base_win * 1.05)
                             win += base_win
 
-                p["money"] += win  # ← ĐÚNG: nằm TRONG vòng for
+                p["money"] += win 
                 socketio.emit("update_balance", {"new_balance": p["money"]}, room=sid)
 
                 # --- LOGIC XÉT CHUỖI THẮNG ---
@@ -629,10 +461,7 @@ def game_loop_thread():
         print("🏁 Game Loop đã dừng hẳn.")
         game_state["is_running"] = False
 
-# ==========================================================
 # 🎮 ACTIONS
-# ==========================================================
-
 @socketio.on("start_game")
 def start_game():
     if game_state["is_running"]: return
