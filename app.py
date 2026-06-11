@@ -364,10 +364,10 @@ def game_loop_thread():
                     socketio.sleep(0)
                     if random.random() <= 0.20:
                         p["money"] += p["current_bet_sum"]
-                        socketio.emit("raid_result", {"status": "SURVIVED", "msg": "Mẹ gọi về ăn cơm!\nThoát nạn, được hoàn tiền."}, room=sid)
+                        socketio.emit("raid_result", {"status": "SURVIVED", "msg": "Mẹ gọi về ăn cơm!\nThoát nạn, được hoàn tiền"}, room=sid)
                         socketio.emit("update_balance", {"new_balance": p["money"]}, room=sid)
                     else:
-                        socketio.emit("raid_result", {"status": "BUSTED", "msg": "TOANG RỒI!\nBị tịch thu toàn bộ tiền cược."}, room=sid)
+                        socketio.emit("raid_result", {"status": "BUSTED", "msg": "TOANG RỒI!\nBị tịch thu toàn bộ tiền cược"}, room=sid)
 
                     p["current_bet"] = {"Bầu":0,"Cua":0,"Tôm":0,"Cá":0,"Nai":0,"Gà":0}
                     p["current_bet_sum"] = 0
