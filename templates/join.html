@@ -718,19 +718,24 @@ const socket = io();
             socket.emit("ping_server", Date.now());
         }
         socket.on("connect", () => {
-            doNtpSync();
-            if (ntpInterval) clearInterval(ntpInterval);
-            ntpInterval = setInterval(doNtpSync, 30000); 
-            const savedName = localStorage.getItem("luclinh_name");
-            if (savedName && myName !== "") {
-                console.log("🔄 Phát hiện mạng chập chờn, tự động khôi phục sòng...");
-                socket.emit("auto_reconnect", { name: savedName });
-            } else if (savedName && document.getElementById("login").classList.contains("hidden")) {
-                console.log("🔄 Khôi phục sảnh chờ...");
-                myName = savedName;
-                socket.emit("auto_reconnect", { name: savedName });
-            }
+    doNtpSync();
+
+    if (ntpInterval) clearInterval(ntpInterval);
+    ntpInterval = setInterval(doNtpSync, 30000);
+
+    const savedName = localStorage.getItem("luclinh_name");
+    const savedReconnectToken = localStorage.getItem("luclinh_reconnect_token");
+
+    if (savedReconnectToken) {
+        console.log("🔄 Đang thử khôi phục phiên chơi...");
+
+        socket.emit("auto_reconnect", {
+            reconnect_token: savedReconnectToken
         });
+    } else if (savedName && document.getElementById("login").classList.contains("hidden")) {
+        console.log("⚠️ Không tìm thấy reconnect token.");
+    }
+});
         socket.on("pong_server", (data) => {
             const t3 = Date.now();
             const rtt = t3 - data.t1;
@@ -933,10 +938,31 @@ function doThrowTomato(rank) {
         socket.emit("join_game", {name:n, gender:g, avatar:a});
     }
         socket.on("join_success", data => {
-            document.getElementById("login").classList.add("hidden");
-            document.getElementById("waiting").classList.remove("hidden");
-            document.getElementById("hello").innerHTML = data.avatar + " " + data.name;
-        });
+    if (data.reconnect_token) {
+        localStorage.setItem(
+            "luclinh_reconnect_token",
+            data.reconnect_token
+        );
+    }
+    if (data.name) {
+        localStorage.setItem("luclinh_name", data.name);
+        myName = data.name;
+    }
+
+    document.getElementById("login").classList.add("hidden");
+    document.getElementById("waiting").classList.remove("hidden");
+    document.getElementById("hello").innerHTML =
+        data.avatar + " " + data.name;
+});
+        socket.on("reconnect_failed", () => {
+    console.log("⚠️ Reconnect token không còn hợp lệ.");
+
+    localStorage.removeItem("luclinh_reconnect_token");
+    document.getElementById("login").classList.remove("hidden");
+    document.getElementById("waiting").classList.add("hidden");
+
+    myName = "";
+});
         socket.on("error_msg", msg => alert(msg));
         let allPlayersCache = [];
         socket.on("update_list", data => {
