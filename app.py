@@ -168,6 +168,29 @@ def generate_event_schedule(total_rounds):
     return dict(zip(positions, events))
 
 
+def generate_jackpot_schedule(total_rounds, event_schedule):
+    if total_rounds <= 10:
+        jackpot_count = 2
+    elif total_rounds <= 20:
+        jackpot_count = 3
+    else:
+        jackpot_count = 5
+
+    # Không chọn round đã có REAL / FAKE
+    available_rounds = [
+        r for r in range(3, total_rounds + 1) if r not in event_schedule
+    ]
+
+    # Tìm đủ vị trí jackpot, không đứng cạnh nhau
+    while True:
+        positions = sorted(random.sample(available_rounds, jackpot_count))
+
+        if all(positions[i + 1] - positions[i] > 1 for i in range(len(positions) - 1)):
+            break
+
+    return positions
+
+
 # 🌐 ROUTES
 @app.route("/")
 def join():
@@ -528,13 +551,13 @@ def game_loop_thread():
 
             dices = ["Bầu", "Cua", "Tôm", "Cá", "Nai", "Gà"]
 
-            if random.random() < 0.05:
+            if current_round in game_state.get("jackpot_schedule", []):
                 lucky_animal = random.choice(dices)
                 result = [lucky_animal, lucky_animal, lucky_animal]
                 jackpot = True
             else:
                 result = [random.choice(dices) for _ in range(3)]
-                jackpot = len(set(result)) == 1
+                jackpot = False
 
             game_state["last_result"] = {
                 "result": result,
@@ -625,6 +648,9 @@ def start_game():
     game_state["is_running"] = True
     game_state["round_count"] = 0
     game_state["event_schedule"] = generate_event_schedule(len(QUESTIONS_DB))
+    game_state["jackpot_schedule"] = generate_jackpot_schedule(
+        len(QUESTIONS_DB), game_state["event_schedule"]
+    )
     for p in players.values():
         p["used_questions"] = []
 
