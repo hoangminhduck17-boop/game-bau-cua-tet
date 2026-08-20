@@ -50,8 +50,6 @@ game_state = {
 }
 
 event_tracker = {
-    "rounds_without_event": 0,
-    "last_real_raid_round": -999,
     "is_bonus_active": False,
 }
 batched_bets = {"Bầu": 0, "Cua": 0, "Tôm": 0, "Cá": 0, "Nai": 0, "Gà": 0}
@@ -140,17 +138,34 @@ def smart_sleep(seconds):
     return True
 
 
-def calculate_raid_chance(round_num, event_tracker):
-    if round_num <= 2:
-        return 0
-    if round_num - event_tracker.get("last_real_raid_round", -99) <= 2:
-        print(f"🛡️ Round {round_num}: Đang Cooldown sự kiện.")
-        return 0
-    final_chance = 0.3
-    print(
-        f"📊 Round {round_num}: Xác suất có biến (cố định): {final_chance * 100:.1f}%"
-    )
-    return final_chance
+def generate_event_schedule(total_rounds):
+    if total_rounds <= 10:
+        real_cnt, fake_cnt = 1, 1
+    elif total_rounds <= 20:
+        real_cnt, fake_cnt = 2, 3
+    else:
+        real_cnt, fake_cnt = 3, 4
+
+    event_count = real_cnt + fake_cnt
+    available_rounds = list(range(3, total_rounds + 1))
+
+    # Kiểm tra số event tối đa có thể xếp mà không liên tiếp
+    max_possible = (len(available_rounds) + 1) // 2
+
+    if event_count > max_possible:
+        return {}
+
+    while True:
+        positions = sorted(random.sample(available_rounds, event_count))
+
+        if all(positions[i + 1] - positions[i] > 1 for i in range(len(positions) - 1)):
+            break
+
+    events = ["REAL"] * real_cnt + ["FAKE"] * fake_cnt
+    random.shuffle(events)
+    random.shuffle(positions)
+
+    return dict(zip(positions, events))
 
 
 # 🌐 ROUTES
@@ -349,8 +364,6 @@ def game_loop_thread():
         socketio.emit("countdown_start", {"count": 0})
         socketio.sleep(0.3)
 
-        event_tracker["rounds_without_event"] = 0
-        event_tracker["last_real_raid_round"] = -999
         event_tracker["is_bonus_active"] = False
 
         while game_state["is_running"]:
@@ -455,13 +468,7 @@ def game_loop_thread():
 
             # 🚨 LOGIC SỰ KIỆN
             current_round = game_state["round_count"]
-            event_type = "NONE"
-            raid_probability = calculate_raid_chance(current_round, event_tracker)
-            if random.random() < raid_probability:
-                if random.random() < 0.30:
-                    event_type = "FAKE"
-                else:
-                    event_type = "REAL"
+            event_type = game_state.get("event_schedule", {}).get(current_round, "NONE")
             if event_type == "FAKE":
                 print("🤡 Báo động giả!")
                 event_tracker["is_bonus_active"] = True
@@ -470,7 +477,6 @@ def game_loop_thread():
                     break
             elif event_type == "REAL":
                 print("🚨 CÔNG AN HỐT SÒNG THẬT!")
-                event_tracker["last_real_raid_round"] = current_round
 
                 for sid, p in list(players.items()):
                     socketio.sleep(0)
@@ -513,9 +519,6 @@ def game_loop_thread():
                     break
                 continue
 
-            else:
-                event_tracker["rounds_without_event"] += 1
-
             # === PHASE 4: LẮC XÍ NGẦU (4s) ===
             ROLLING_DURATION = 4
             game_state["phase"] = "ROLLING"
@@ -524,9 +527,8 @@ def game_loop_thread():
             game_state["lixi_winners"] = []
 
             dices = ["Bầu", "Cua", "Tôm", "Cá", "Nai", "Gà"]
-            current_round = game_state["round_count"]
 
-            if current_round in [6, 9, 16]:
+            if random.random() < 0.05:
                 lucky_animal = random.choice(dices)
                 result = [lucky_animal, lucky_animal, lucky_animal]
                 jackpot = True
@@ -622,6 +624,7 @@ def start_game():
     print("▶️ Host bắt đầu game!")
     game_state["is_running"] = True
     game_state["round_count"] = 0
+    game_state["event_schedule"] = generate_event_schedule(len(QUESTIONS_DB))
     for p in players.values():
         p["used_questions"] = []
 
